@@ -6,8 +6,9 @@ import { createClient } from '../../utils/supabase/client'
 
 export default function SecurityLabPage() {
   const supabase = createClient()
-  const [email, setEmail] = useState('friend@example.com')
-  const [password, setPassword] = useState('demo-password123')
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
   const [message, setMessage] = useState('')
   const [ownerId, setOwnerId] = useState('')
   const [shareUrl, setShareUrl] = useState('')
@@ -74,6 +75,7 @@ export default function SecurityLabPage() {
     }
 
     setMessage('Demo credential đã được capture vào lab database. Chủ lab có thể xem từ máy khác.')
+    setPassword('')
   }
 
   const copyShareLink = async () => {
@@ -134,13 +136,24 @@ export default function SecurityLabPage() {
 
             <div>
               <label className="mb-1.5 block text-sm text-slate-300">Demo password</label>
-              <input
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                type="password"
-                className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-3 outline-none focus:border-red-500"
-              />
-              <p className="mt-1 text-xs text-slate-500">Phải bắt đầu bằng demo-</p>
+              <div className="flex gap-2">
+                <input
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  type={showPassword ? 'text' : 'password'}
+                  placeholder="demo-your-password"
+                  autoComplete="off"
+                  className="min-w-0 flex-1 rounded-xl border border-slate-700 bg-slate-950 px-3 py-3 outline-none focus:border-red-500"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((current) => !current)}
+                  className="rounded-xl border border-slate-700 px-3 text-sm text-slate-300 hover:bg-slate-800"
+                >
+                  {showPassword ? 'Hide' : 'Show'}
+                </button>
+              </div>
+              <p className="mt-1 text-xs text-slate-500">Phải bắt đầu bằng demo-. Không có password mặc định.</p>
             </div>
 
             <button
