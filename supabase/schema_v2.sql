@@ -21,6 +21,26 @@ create table if not exists public.workout_sessions (
   created_at timestamptz default now() not null
 );
 
+-- If an older V1 table named workout_sets already exists without session_id,
+-- preserve it by renaming it instead of dropping data.
+do $
+begin
+  if to_regclass('public.workout_sets') is not null
+     and not exists (
+       select 1
+       from information_schema.columns
+       where table_schema = 'public'
+         and table_name = 'workout_sets'
+         and column_name = 'session_id'
+     ) then
+    if to_regclass('public.workout_sets_legacy') is null then
+      alter table public.workout_sets rename to workout_sets_legacy;
+    else
+      raise exception 'Both workout_sets and workout_sets_legacy exist. Rename one manually before running this migration.';
+    end if;
+  end if;
+end $;
+
 create table if not exists public.workout_sets (
   id uuid primary key default gen_random_uuid(),
   session_id uuid references public.workout_sessions(id) on delete cascade not null,
