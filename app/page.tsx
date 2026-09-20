@@ -86,6 +86,37 @@ export default function Home() {
   const [rir, setRir] = useState('2')
   const [isWarmup, setIsWarmup] = useState(false)
   const [draftSets, setDraftSets] = useState<DraftSet[]>([])
+  const [showTimer, setShowTimer] = useState(false)
+  const [timerSeconds, setTimerSeconds] = useState(90)
+  const [timerRunning, setTimerRunning] = useState(false)
+
+  useEffect(() => {
+    if (!timerRunning) return
+
+    const timer = window.setInterval(() => {
+      setTimerSeconds((seconds) => {
+        if (seconds <= 1) {
+          window.clearInterval(timer)
+          setTimerRunning(false)
+          return 0
+        }
+        return seconds - 1
+      })
+    }, 1000)
+
+    return () => window.clearInterval(timer)
+  }, [timerRunning])
+
+  const formatTimer = (seconds: number) => {
+    const minutes = Math.floor(seconds / 60)
+    const remaining = seconds % 60
+    return `${String(minutes).padStart(2, '0')}:${String(remaining).padStart(2, '0')}`
+  }
+
+  const setTimerPreset = (seconds: number) => {
+    setTimerSeconds(seconds)
+    setTimerRunning(true)
+  }
 
   const fetchExercises = async () => {
     const { data, error } = await supabase
@@ -394,81 +425,155 @@ export default function Home() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-950 text-white flex items-center justify-center">
-        Đang tải V2...
+      <div className="min-h-screen bg-[#090d16] text-white flex items-center justify-center">
+        Đang tải FitProgress...
       </div>
     )
   }
 
   return (
-    <main className="min-h-screen bg-slate-950 px-4 py-6 text-slate-100 md:px-8">
-      <div className="mx-auto max-w-6xl">
-        <header className="mb-6 flex flex-col gap-4 border-b border-slate-800 pb-5 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <p className="text-sm font-semibold text-blue-400">PROGRESSIVE OVERLOAD · V2</p>
-            <h1 className="text-3xl font-bold tracking-tight">Workout Tracker</h1>
-            <p className="mt-1 text-sm text-slate-400">{user?.email}</p>
+    <main className="min-h-screen bg-[#090d16] pb-20 text-slate-100">
+      <header className="sticky top-0 z-40 border-b border-slate-800 bg-[#0f172a]/90 backdrop-blur-md">
+        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-tr from-emerald-600 to-emerald-400 text-lg shadow-lg shadow-emerald-500/20">
+              🏋️
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h1 className="text-lg font-bold tracking-tight">FitProgress</h1>
+                <span className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase text-emerald-400">
+                  Overload Tracker
+                </span>
+              </div>
+              <p className="hidden text-xs text-slate-400 sm:block">
+                Theo dõi tăng tiến tải trọng & thể tích tập luyện
+              </p>
+            </div>
           </div>
-          <button
-            onClick={handleLogout}
-            className="rounded-lg border border-slate-700 px-4 py-2 text-sm font-semibold hover:bg-slate-900"
-          >
-            Đăng xuất
-          </button>
-        </header>
 
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowTimer(true)}
+              className="rounded-lg border border-slate-700 bg-slate-800 px-3 py-1.5 text-sm font-medium text-slate-200 hover:bg-slate-700"
+            >
+              ⏱ {formatTimer(timerSeconds)}
+            </button>
+            <button
+              onClick={() => window.scrollTo({ top: 250, behavior: 'smooth' })}
+              className="rounded-lg bg-emerald-500 px-3.5 py-1.5 text-sm font-bold text-slate-950 hover:bg-emerald-400"
+            >
+              + Ghi buổi tập
+            </button>
+            <button
+              onClick={handleLogout}
+              className="hidden rounded-lg border border-slate-700 px-3 py-1.5 text-sm text-slate-300 hover:bg-slate-800 sm:block"
+            >
+              Đăng xuất
+            </button>
+          </div>
+        </div>
+      </header>
+
+      <div className="mx-auto max-w-7xl px-4 pt-6 sm:px-6 lg:px-8">
         <section className="mb-6 grid grid-cols-2 gap-3 md:grid-cols-4">
-          <div className="rounded-xl border border-slate-800 bg-slate-900 p-4">
-            <p className="text-xs uppercase tracking-wide text-slate-500">Buổi tập</p>
-            <p className="mt-1 text-2xl font-bold">{sessions.length}</p>
+          <div className="flex items-center justify-between rounded-2xl border border-slate-800 bg-[#0f172a] p-4">
+            <div>
+              <p className="text-xs font-medium text-slate-400">Tổng buổi tập</p>
+              <p className="mt-1 text-2xl font-bold">{sessions.length}</p>
+            </div>
+            <div className="rounded-xl bg-emerald-500/10 p-3">📅</div>
           </div>
-          <div className="rounded-xl border border-slate-800 bg-slate-900 p-4">
-            <p className="text-xs uppercase tracking-wide text-slate-500">Working sets</p>
-            <p className="mt-1 text-2xl font-bold">{workingSets.length}</p>
+          <div className="flex items-center justify-between rounded-2xl border border-slate-800 bg-[#0f172a] p-4">
+            <div>
+              <p className="text-xs font-medium text-slate-400">Working sets</p>
+              <p className="mt-1 text-2xl font-bold">{workingSets.length}</p>
+            </div>
+            <div className="rounded-xl bg-blue-500/10 p-3">📚</div>
           </div>
-          <div className="rounded-xl border border-slate-800 bg-slate-900 p-4">
-            <p className="text-xs uppercase tracking-wide text-slate-500">Volume</p>
-            <p className="mt-1 text-2xl font-bold">{Math.round(totalVolume).toLocaleString()} kg</p>
+          <div className="flex items-center justify-between rounded-2xl border border-slate-800 bg-[#0f172a] p-4">
+            <div>
+              <p className="text-xs font-medium text-slate-400">Tổng volume</p>
+              <p className="mt-1 text-2xl font-bold">
+                {Math.round(totalVolume).toLocaleString()} <span className="text-xs font-normal text-slate-400">kg</span>
+              </p>
+            </div>
+            <div className="rounded-xl bg-amber-500/10 p-3">⚡</div>
           </div>
-          <div className="rounded-xl border border-slate-800 bg-slate-900 p-4">
-            <p className="text-xs uppercase tracking-wide text-slate-500">Top loaded weight</p>
-            <p className="mt-1 text-2xl font-bold">{maxLoadedWeight} kg</p>
+          <div className="flex items-center justify-between rounded-2xl border border-slate-800 bg-[#0f172a] p-4">
+            <div>
+              <p className="text-xs font-medium text-slate-400">Top loaded weight</p>
+              <p className="mt-1 text-2xl font-bold">{maxLoadedWeight} kg</p>
+            </div>
+            <div className="rounded-xl bg-purple-500/10 p-3">🏆</div>
           </div>
         </section>
 
-        <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
-          <section className="rounded-2xl border border-slate-800 bg-slate-900 p-5 md:p-6">
-            <h2 className="text-xl font-bold">Buổi tập hiện tại</h2>
-            <p className="mt-1 text-sm text-slate-400">Thêm từng set thật thay vì ghi gộp 3 × 10.</p>
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
+          <section className="space-y-6 lg:col-span-5">
+            <div className="relative overflow-hidden rounded-2xl border border-slate-800 bg-[#0f172a] p-5 shadow-xl sm:p-6">
+              <div className="pointer-events-none absolute right-0 top-0 h-32 w-32 rounded-full bg-emerald-500/5 blur-2xl" />
 
-            <div className="mt-5 grid gap-4 sm:grid-cols-2">
-              <div>
-                <label className="mb-1.5 block text-sm text-slate-400">Tên buổi</label>
-                <input
-                  value={sessionTitle}
-                  onChange={(event) => setSessionTitle(event.target.value)}
-                  placeholder="Push Day A"
-                  className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-3 outline-none focus:border-blue-500"
-                />
+              <div className="mb-4 flex items-center justify-between border-b border-slate-800 pb-3">
+                <div>
+                  <h2 className="font-semibold">✍️ Ghi buổi tập mới</h2>
+                  <p className="mt-1 text-xs text-slate-500">{user?.email}</p>
+                </div>
+                <span className="rounded-full bg-emerald-500/10 px-2.5 py-1 text-[11px] font-semibold text-emerald-400">
+                  V2 · Supabase
+                </span>
               </div>
-              <div>
-                <label className="mb-1.5 block text-sm text-slate-400">Ngày</label>
-                <input
-                  type="date"
-                  value={sessionDate}
-                  onChange={(event) => setSessionDate(event.target.value)}
-                  className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-3 outline-none focus:border-blue-500"
-                />
-              </div>
-            </div>
 
-            <div className="mt-5 rounded-xl border border-slate-800 bg-slate-950/60 p-4">
-              <div>
-                <label className="mb-1.5 block text-sm text-slate-400">Bài tập</label>
+              <div className="mb-4">
+                <div className="mb-2 flex items-center justify-between">
+                  <p className="text-xs font-semibold uppercase tracking-wider text-slate-300">Chọn nhanh bài tập</p>
+                  <span className="text-[11px] text-slate-500">nhấp để áp dụng</span>
+                </div>
+                <div className="flex max-h-28 flex-wrap gap-1.5 overflow-y-auto">
+                  {exercises.slice(0, 12).map((item) => (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => setExerciseId(item.id)}
+                      className={
+                        exerciseId === item.id
+                          ? 'rounded-lg border border-emerald-500/60 bg-emerald-500/10 px-2.5 py-1 text-xs text-emerald-300'
+                          : 'rounded-lg border border-slate-700 bg-[#090d16] px-2.5 py-1 text-xs text-slate-300 hover:border-emerald-500/50 hover:bg-slate-800'
+                      }
+                    >
+                      {item.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-slate-300">Tên buổi</label>
+                  <input
+                    value={sessionTitle}
+                    onChange={(event) => setSessionTitle(event.target.value)}
+                    placeholder="Push Day A"
+                    className="w-full rounded-xl border border-slate-700 bg-[#090d16] px-3 py-2 text-sm outline-none focus:border-emerald-500"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-slate-300">Ngày tập</label>
+                  <input
+                    type="date"
+                    value={sessionDate}
+                    onChange={(event) => setSessionDate(event.target.value)}
+                    className="w-full rounded-xl border border-slate-700 bg-[#090d16] px-3 py-2 text-sm outline-none focus:border-emerald-500"
+                  />
+                </div>
+              </div>
+
+              <div className="mt-4">
+                <label className="mb-1 block text-xs font-medium text-slate-300">Bài tập</label>
                 <select
                   value={exerciseId}
                   onChange={(event) => setExerciseId(event.target.value)}
-                  className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-3 outline-none focus:border-blue-500"
+                  className="w-full rounded-xl border border-slate-700 bg-[#090d16] px-3 py-2 text-sm outline-none focus:border-emerald-500"
                 >
                   {exercises.map((item) => (
                     <option key={item.id} value={item.id}>
@@ -478,180 +583,168 @@ export default function Home() {
                 </select>
               </div>
 
-              <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
-                <div>
-                  <label className="mb-1 block text-xs text-slate-500">Weight kg</label>
-                  <input
-                    type="number"
-                    min="0"
-                    step="0.5"
-                    value={weight}
-                    onChange={(event) => setWeight(event.target.value)}
-                    placeholder="0 = BW"
-                    className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 outline-none"
-                  />
+              <div className="mt-4 rounded-xl border border-slate-800 bg-[#090d16]/70 p-3">
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                  <div>
+                    <label className="mb-1 block text-[11px] font-semibold uppercase text-slate-500">Tạ kg</label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.5"
+                      value={weight}
+                      onChange={(event) => setWeight(event.target.value)}
+                      placeholder="0 = BW"
+                      className="w-full rounded-lg border border-slate-700 bg-[#0f172a] px-2.5 py-2 text-center text-sm outline-none focus:border-emerald-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-[11px] font-semibold uppercase text-slate-500">Reps</label>
+                    <input
+                      type="number"
+                      min="1"
+                      value={reps}
+                      onChange={(event) => setReps(event.target.value)}
+                      className="w-full rounded-lg border border-slate-700 bg-[#0f172a] px-2.5 py-2 text-center text-sm outline-none focus:border-emerald-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-[11px] font-semibold uppercase text-slate-500">RIR</label>
+                    <input
+                      type="number"
+                      min="0"
+                      max="4"
+                      value={rir}
+                      onChange={(event) => setRir(event.target.value)}
+                      className="w-full rounded-lg border border-slate-700 bg-[#0f172a] px-2.5 py-2 text-center text-sm outline-none focus:border-emerald-500"
+                    />
+                  </div>
+                  <label className="flex items-end gap-2 pb-2 text-xs text-slate-400">
+                    <input
+                      type="checkbox"
+                      checked={isWarmup}
+                      onChange={(event) => setIsWarmup(event.target.checked)}
+                    />
+                    Warm-up
+                  </label>
                 </div>
-                <div>
-                  <label className="mb-1 block text-xs text-slate-500">Reps</label>
-                  <input
-                    type="number"
-                    min="1"
-                    value={reps}
-                    onChange={(event) => setReps(event.target.value)}
-                    className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 outline-none"
-                  />
+
+                <div className="mt-3 grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={repeatLastSet}
+                    className="rounded-lg border border-slate-700 py-2 text-xs font-medium text-slate-300 hover:bg-slate-800"
+                  >
+                    Copy set trước
+                  </button>
+                  <button
+                    type="button"
+                    onClick={addDraftSet}
+                    className="rounded-lg bg-emerald-500 py-2 text-xs font-bold text-slate-950 hover:bg-emerald-400"
+                  >
+                    + Thêm set
+                  </button>
                 </div>
-                <div>
-                  <label className="mb-1 block text-xs text-slate-500">RIR</label>
-                  <input
-                    type="number"
-                    min="0"
-                    max="4"
-                    value={rir}
-                    onChange={(event) => setRir(event.target.value)}
-                    className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 outline-none"
-                  />
-                </div>
-                <label className="flex items-end gap-2 pb-2 text-sm text-slate-400">
-                  <input
-                    type="checkbox"
-                    checked={isWarmup}
-                    onChange={(event) => setIsWarmup(event.target.checked)}
-                  />
-                  Warm-up
-                </label>
               </div>
 
-              <div className="mt-4 grid grid-cols-2 gap-3">
-                <button
-                  type="button"
-                  onClick={repeatLastSet}
-                  className="rounded-lg border border-slate-700 px-3 py-2.5 font-medium hover:bg-slate-800"
-                >
-                  Copy set trước
-                </button>
-                <button
-                  type="button"
-                  onClick={addDraftSet}
-                  className="rounded-lg bg-blue-600 px-3 py-2.5 font-bold hover:bg-blue-500"
-                >
-                  + Thêm set
-                </button>
-              </div>
-            </div>
-
-            <div className="mt-5">
-              <div className="mb-2 flex items-center justify-between">
-                <h3 className="font-semibold">Sets đang ghi</h3>
-                <span className="text-sm text-slate-500">{draftSets.length} sets</span>
-              </div>
-
-              {draftSets.length === 0 ? (
-                <div className="rounded-lg border border-dashed border-slate-700 py-7 text-center text-sm text-slate-500">
-                  Chưa có set nào.
+              <div className="mt-4">
+                <div className="mb-2 flex items-center justify-between">
+                  <p className="text-xs font-semibold uppercase tracking-wider text-slate-300">Danh sách sets</p>
+                  <span className="text-[11px] text-slate-500">{draftSets.length} set</span>
                 </div>
-              ) : (
                 <div className="space-y-2">
-                  {draftSets.map((set, index) => {
-                    const item = exercises.find((exercise) => exercise.id === set.exercise_id)
-                    return (
-                      <div
-                        key={set.tempId}
-                        className="flex items-center justify-between gap-3 rounded-lg border border-slate-800 bg-slate-950/60 p-3"
-                      >
-                        <div>
-                          <p className="font-medium">
-                            {index + 1}. {item?.name ?? 'Exercise'}
-                            {set.is_warmup && (
-                              <span className="ml-2 rounded bg-amber-950 px-2 py-0.5 text-xs text-amber-300">
-                                warm-up
-                              </span>
-                            )}
-                          </p>
-                          <p className="text-sm text-slate-400">
-                            {displayWeight(set.weight_kg)} × {set.reps} @ RIR {set.rir}
-                          </p>
+                  {draftSets.length === 0 ? (
+                    <div className="rounded-xl border border-dashed border-slate-700 py-7 text-center text-xs text-slate-500">
+                      Thêm set đầu tiên để bắt đầu.
+                    </div>
+                  ) : (
+                    draftSets.map((set, index) => {
+                      const item = exercises.find((exercise) => exercise.id === set.exercise_id)
+                      return (
+                        <div key={set.tempId} className="flex items-center justify-between rounded-xl border border-slate-800 bg-[#090d16]/70 p-3">
+                          <div>
+                            <p className="text-sm font-semibold">
+                              <span className="mr-2 font-mono text-xs text-slate-500">#{index + 1}</span>
+                              {item?.name}
+                            </p>
+                            <p className="mt-0.5 text-xs text-slate-400">
+                              {displayWeight(set.weight_kg)} × {set.reps} · RIR {set.rir}
+                              {set.is_warmup ? ' · warm-up' : ''}
+                            </p>
+                          </div>
+                          <button onClick={() => removeDraftSet(set.tempId)} className="text-xs text-red-400 hover:text-red-300">
+                            Xóa
+                          </button>
                         </div>
-                        <button
-                          type="button"
-                          onClick={() => removeDraftSet(set.tempId)}
-                          className="text-sm text-red-400 hover:text-red-300"
-                        >
-                          Xóa
-                        </button>
-                      </div>
-                    )
-                  })}
+                      )
+                    })
+                  )}
                 </div>
-              )}
+              </div>
+
+              <div className="mt-4 rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-3 text-xs leading-5 text-slate-300">
+                <span className="font-semibold text-emerald-400">Mốc gần nhất:</span> {nextTarget}
+              </div>
+
+              <div className="mt-4">
+                <label className="mb-1 block text-xs font-medium text-slate-300">Ghi chú</label>
+                <input
+                  value={notes}
+                  onChange={(event) => setNotes(event.target.value)}
+                  placeholder="Form, cảm giác, rest..."
+                  className="w-full rounded-xl border border-slate-700 bg-[#090d16] px-3 py-2 text-sm outline-none focus:border-emerald-500"
+                />
+              </div>
+
+              <button
+                onClick={saveSession}
+                disabled={saving || draftSets.length === 0}
+                className="mt-4 w-full rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 px-4 py-3 text-sm font-bold text-slate-950 shadow-lg shadow-emerald-500/20 hover:from-emerald-400 hover:to-emerald-500 disabled:opacity-50"
+              >
+                {saving ? 'ĐANG LƯU...' : 'LƯU BUỔI TẬP & TÍNH TĂNG TIẾN'}
+              </button>
             </div>
 
-            <div className="mt-5">
-              <label className="mb-1.5 block text-sm text-slate-400">Ghi chú buổi tập</label>
-              <textarea
-                value={notes}
-                onChange={(event) => setNotes(event.target.value)}
-                rows={2}
-                className="w-full resize-none rounded-lg border border-slate-700 bg-slate-800 px-3 py-3 outline-none focus:border-blue-500"
-              />
+            <div className="rounded-2xl border border-slate-800 bg-[#0f172a] p-4 text-xs text-slate-400">
+              <p className="font-semibold text-emerald-400">✨ Mẹo Progressive Overload</p>
+              <p className="mt-2 leading-5">
+                Tăng tiến bằng cách tăng tạ, thêm reps hoặc cải thiện chất lượng set. Đừng tăng tạ nếu form bắt đầu vỡ.
+              </p>
             </div>
-
-            <button
-              onClick={saveSession}
-              disabled={saving || draftSets.length === 0}
-              className="mt-5 w-full rounded-lg bg-emerald-600 px-4 py-3 font-bold hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {saving ? 'ĐANG LƯU...' : 'HOÀN THÀNH BUỔI TẬP'}
-            </button>
           </section>
 
-          <div className="space-y-6">
-            <section className="rounded-2xl border border-blue-900/60 bg-blue-950/30 p-5 md:p-6">
-              <p className="text-xs font-semibold uppercase tracking-widest text-blue-400">Next target</p>
-              <h2 className="mt-2 text-xl font-bold">{selectedExercise?.name ?? 'Chọn bài tập'}</h2>
-              <p className="mt-4 leading-7 text-slate-300">{nextTarget}</p>
-              <p className="mt-4 text-xs leading-5 text-slate-500">
-                Rule hiện tại: double progression 6–12 reps. App dùng RPE lưu trong DB và hiển thị RIR cho dễ tập.
-              </p>
-            </section>
-
-            <section className="rounded-2xl border border-slate-800 bg-slate-900 p-5 md:p-6">
-              <div className="flex items-center justify-between gap-3">
+          <section className="space-y-6 lg:col-span-7">
+            <div className="rounded-2xl border border-slate-800 bg-[#0f172a] p-5 shadow-xl">
+              <div className="mb-4 flex flex-col gap-3 border-b border-slate-800 pb-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                  <p className="text-xs font-semibold uppercase tracking-widest text-emerald-400">Personal records</p>
-                  <h2 className="mt-1 font-bold">{selectedExercise?.name ?? 'Exercise'}</h2>
+                  <h2 className="font-semibold">📈 Biểu đồ tiến trình theo bài tập</h2>
+                  <p className="mt-1 text-xs text-slate-400">Estimated 1RM của {selectedExercise?.name ?? 'bài đang chọn'}</p>
                 </div>
                 {exerciseStats.bestE1rm > 0 && (
-                  <span className="rounded-full border border-emerald-900 bg-emerald-950/40 px-3 py-1 text-xs text-emerald-300">
-                    e1RM {exerciseStats.bestE1rm.toFixed(1)} kg
+                  <span className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-xs font-semibold text-emerald-400">
+                    PR e1RM {exerciseStats.bestE1rm.toFixed(1)} kg
                   </span>
                 )}
               </div>
 
-              <div className="mt-4 grid grid-cols-3 gap-2">
-                <div className="rounded-lg bg-slate-950/60 p-3">
-                  <p className="text-xs text-slate-500">Heaviest</p>
+              <div className="grid grid-cols-3 gap-2">
+                <div className="rounded-xl bg-[#090d16] p-3">
+                  <p className="text-[11px] text-slate-500">Tạ nặng nhất</p>
                   <p className="mt-1 font-bold">{exerciseStats.bestWeight > 0 ? `${exerciseStats.bestWeight} kg` : '—'}</p>
                 </div>
-                <div className="rounded-lg bg-slate-950/60 p-3">
-                  <p className="text-xs text-slate-500">Most reps</p>
+                <div className="rounded-xl bg-[#090d16] p-3">
+                  <p className="text-[11px] text-slate-500">Reps cao nhất</p>
                   <p className="mt-1 font-bold">{exerciseStats.bestReps || '—'}</p>
                 </div>
-                <div className="rounded-lg bg-slate-950/60 p-3">
-                  <p className="text-xs text-slate-500">e1RM PR</p>
-                  <p className="mt-1 font-bold">{exerciseStats.bestE1rm > 0 ? `${exerciseStats.bestE1rm.toFixed(1)}` : '—'}</p>
+                <div className="rounded-xl bg-[#090d16] p-3">
+                  <p className="text-[11px] text-slate-500">e1RM PR</p>
+                  <p className="mt-1 font-bold">{exerciseStats.bestE1rm > 0 ? `${exerciseStats.bestE1rm.toFixed(1)} kg` : '—'}</p>
                 </div>
               </div>
 
-              <div className="mt-4 rounded-xl border border-slate-800 bg-slate-950/50 p-3">
-                <div className="mb-2 flex items-center justify-between">
-                  <p className="text-sm font-medium">Strength trend</p>
-                  <p className="text-xs text-slate-500">last {exerciseStats.chartPoints.length || 0} sessions</p>
-                </div>
-
+              <div className="relative mt-4 h-60 rounded-xl border border-slate-800 bg-[#090d16]/60 p-4">
                 {exerciseStats.chartPoints.length > 0 ? (
                   <>
-                    <svg viewBox="0 0 100 100" className="h-36 w-full" preserveAspectRatio="none" aria-label="Estimated one rep max progress chart">
+                    <svg viewBox="0 0 100 100" className="h-full w-full" preserveAspectRatio="none">
                       <line x1="0" y1="90" x2="100" y2="90" stroke="currentColor" className="text-slate-800" strokeWidth="1" />
                       <polyline
                         points={chartPolyline}
@@ -668,114 +761,147 @@ export default function Home() {
                         const span = Math.max(max - min, 1)
                         const x = exerciseStats.chartPoints.length === 1 ? 50 : (index / (exerciseStats.chartPoints.length - 1)) * 100
                         const y = 90 - ((point.value - min) / span) * 75
-                        return <circle key={point.date} cx={x} cy={y} r="1.6" fill="currentColor" className="text-emerald-300" />
+                        return <circle key={point.date} cx={x} cy={y} r="1.7" fill="currentColor" className="text-emerald-300" />
                       })}
                     </svg>
-                    <div className="mt-1 flex justify-between text-[11px] text-slate-600">
+                    <div className="absolute bottom-2 left-4 right-4 flex justify-between text-[10px] text-slate-600">
                       <span>{formatDate(exerciseStats.chartPoints[0].date)}</span>
                       <span>{formatDate(exerciseStats.chartPoints[exerciseStats.chartPoints.length - 1].date)}</span>
                     </div>
                   </>
                 ) : (
-                  <p className="py-10 text-center text-sm text-slate-500">Cần ít nhất một working set có mức tạ để vẽ progress.</p>
-                )}
-              </div>
-            </section>
-
-            <section className="rounded-2xl border border-slate-800 bg-slate-900 p-5 md:p-6">
-              <h2 className="font-bold">Progress gần nhất</h2>
-              <div className="mt-4 space-y-2">
-                {exerciseHistory.slice(0, 5).map((set) => (
-                  <div key={set.id} className="flex justify-between rounded-lg bg-slate-950/60 p-3 text-sm">
-                    <span className="text-slate-400">{formatDate(set.sessionDate)}</span>
-                    <span>
-                      {displayWeight(set.weight_kg)} × {set.reps} · RIR{' '}
-                      {set.rpe === null ? '?' : Math.max(0, Math.round(10 - set.rpe))}
-                    </span>
+                  <div className="flex h-full flex-col items-center justify-center text-center text-xs text-slate-500">
+                    <div className="mb-2 text-3xl opacity-50">📉</div>
+                    Chưa có đủ dữ liệu cho bài này.
                   </div>
-                ))}
-                {exerciseHistory.length === 0 && (
-                  <p className="text-sm text-slate-500">Chưa có history cho bài này.</p>
                 )}
               </div>
-            </section>
+            </div>
+
+            <div className="rounded-2xl border border-slate-800 bg-[#0f172a] p-5 shadow-xl">
+              <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <h2 className="font-semibold">🕘 Lịch sử bài tập & đánh giá overload</h2>
+                  <p className="mt-1 text-xs text-slate-400">{filteredSessions.length} buổi tập</p>
+                </div>
+                <input
+                  value={search}
+                  onChange={(event) => setSearch(event.target.value)}
+                  placeholder="Tìm bài tập / session..."
+                  className="rounded-lg border border-slate-700 bg-[#090d16] px-3 py-1.5 text-xs outline-none focus:border-emerald-500"
+                />
+              </div>
+
+              <div className="max-h-[620px] space-y-3 overflow-y-auto pr-1">
+                {filteredSessions.length === 0 ? (
+                  <div className="py-12 text-center text-xs text-slate-500">Chưa có dữ liệu phù hợp.</div>
+                ) : (
+                  filteredSessions.map((session) => {
+                    const groups = new Map<string, SetRow[]>()
+                    session.workout_sets.forEach((set) => {
+                      const list = groups.get(set.exercise_id) ?? []
+                      list.push(set)
+                      groups.set(set.exercise_id, list)
+                    })
+
+                    return (
+                      <article key={session.id} className="rounded-xl border border-slate-800 bg-[#090d16]/75 p-4 hover:border-slate-700">
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <div className="flex flex-wrap items-center gap-2">
+                              <h3 className="text-sm font-bold">{session.title}</h3>
+                              <span className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-400">
+                                Logged
+                              </span>
+                            </div>
+                            <p className="mt-1 text-xs text-slate-500">{formatDate(session.session_date)}</p>
+                          </div>
+                          <button onClick={() => deleteSession(session.id)} className="text-xs text-slate-500 hover:text-red-400">
+                            Xóa
+                          </button>
+                        </div>
+
+                        <div className="mt-3 space-y-3">
+                          {[...groups.values()].map((setsForExercise) => {
+                            const first = setsForExercise[0]
+                            const volume = setsForExercise
+                              .filter((set) => !set.is_warmup)
+                              .reduce((sum, set) => sum + Number(set.weight_kg) * set.reps, 0)
+
+                            return (
+                              <div key={first.exercise_id} className="rounded-lg border border-slate-800 bg-[#0f172a] p-3">
+                                <div className="flex items-center justify-between gap-3">
+                                  <p className="text-sm font-semibold">{first.exercise?.name ?? 'Exercise'}</p>
+                                  <span className="text-[11px] text-slate-500">{Math.round(volume)} kg volume</span>
+                                </div>
+                                <div className="mt-2 flex flex-wrap gap-1.5">
+                                  {setsForExercise.map((set) => (
+                                    <span key={set.id} className="rounded-lg border border-slate-800 bg-[#090d16] px-2.5 py-1 text-xs text-slate-300">
+                                      <span className="font-mono text-[10px] text-slate-600">#{set.set_number}</span>{' '}
+                                      <strong>{displayWeight(Number(set.weight_kg))}</strong> × <strong>{set.reps}</strong>
+                                      {set.rpe !== null ? ` · RIR ${Math.max(0, Math.round(10 - set.rpe))}` : ''}
+                                    </span>
+                                  ))}
+                                </div>
+                              </div>
+                            )
+                          })}
+                        </div>
+                        {session.notes && <p className="mt-3 truncate text-xs italic text-slate-500">“{session.notes}”</p>}
+                      </article>
+                    )
+                  })
+                )}
+              </div>
+            </div>
+          </section>
+        </div>
+      </div>
+
+      {showTimer && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
+          <div className="relative w-full max-w-sm rounded-3xl border border-slate-800 bg-[#0f172a] p-6 text-center shadow-2xl">
+            <button onClick={() => setShowTimer(false)} className="absolute right-4 top-4 text-slate-500 hover:text-white">✕</button>
+            <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-emerald-500/10 text-2xl">⏱</div>
+            <h3 className="text-lg font-bold">Đồng hồ nghỉ giữa hiệp</h3>
+            <p className="mt-1 text-xs text-slate-400">Chọn thời gian nghỉ rồi bắt đầu set tiếp theo.</p>
+            <div className="my-6 font-mono text-6xl font-extrabold tracking-tight text-emerald-400">{formatTimer(timerSeconds)}</div>
+
+            <div className="mb-5 grid grid-cols-4 gap-2">
+              {[45, 60, 90, 180].map((seconds) => (
+                <button
+                  key={seconds}
+                  onClick={() => setTimerPreset(seconds)}
+                  className="rounded-lg border border-slate-700 bg-[#090d16] py-1.5 text-xs font-semibold hover:bg-slate-800"
+                >
+                  {seconds === 180 ? '3p' : `${seconds}s`}
+                </button>
+              ))}
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  if (timerSeconds === 0) setTimerSeconds(90)
+                  setTimerRunning((running) => !running)
+                }}
+                className="flex-1 rounded-xl bg-emerald-500 py-2.5 text-sm font-bold text-slate-950 hover:bg-emerald-400"
+              >
+                {timerRunning ? 'Tạm dừng' : 'Bắt đầu'}
+              </button>
+              <button
+                onClick={() => {
+                  setTimerRunning(false)
+                  setTimerSeconds(90)
+                }}
+                className="rounded-xl bg-slate-800 px-4 py-2.5 text-sm font-medium text-slate-300 hover:bg-slate-700"
+              >
+                Đặt lại
+              </button>
+            </div>
           </div>
         </div>
-
-        <section className="mt-6 rounded-2xl border border-slate-800 bg-slate-900 p-5 md:p-6">
-          <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <h2 className="text-xl font-bold">Lịch sử buổi tập</h2>
-              <p className="text-sm text-slate-400">Session → exercise → từng set.</p>
-            </div>
-            <input
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              placeholder="Tìm Push Day, Pull-up..."
-              className="rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm outline-none focus:border-blue-500"
-            />
-          </div>
-
-          {filteredSessions.length === 0 ? (
-            <div className="rounded-xl border border-dashed border-slate-700 py-10 text-center text-slate-500">
-              Chưa có buổi tập nào.
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {filteredSessions.map((session) => {
-                const groups = new Map<string, SetRow[]>()
-                session.workout_sets.forEach((set) => {
-                  const list = groups.get(set.exercise_id) ?? []
-                  list.push(set)
-                  groups.set(set.exercise_id, list)
-                })
-
-                return (
-                  <article key={session.id} className="rounded-xl border border-slate-800 bg-slate-950/50 p-4">
-                    <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-                      <div>
-                        <div className="flex flex-wrap items-center gap-2">
-                          <h3 className="text-lg font-bold">{session.title}</h3>
-                          <span className="rounded bg-slate-800 px-2 py-0.5 text-xs text-slate-400">
-                            {formatDate(session.session_date)}
-                          </span>
-                        </div>
-                        {session.notes && <p className="mt-1 text-sm text-slate-400">{session.notes}</p>}
-                      </div>
-                      <button
-                        onClick={() => deleteSession(session.id)}
-                        className="text-sm text-red-400 hover:text-red-300"
-                      >
-                        Xóa session
-                      </button>
-                    </div>
-
-                    <div className="mt-4 grid gap-3 md:grid-cols-2">
-                      {[...groups.values()].map((setsForExercise) => {
-                        const first = setsForExercise[0]
-                        return (
-                          <div key={first.exercise_id} className="rounded-lg border border-slate-800 bg-slate-900 p-3">
-                            <p className="font-semibold">{first.exercise?.name ?? 'Exercise'}</p>
-                            <div className="mt-2 space-y-1 text-sm text-slate-400">
-                              {setsForExercise.map((set) => (
-                                <p key={set.id}>
-                                  Set {set.set_number}: {displayWeight(Number(set.weight_kg))} × {set.reps}
-                                  {set.rpe !== null ? ` @ RIR ${Math.max(0, Math.round(10 - set.rpe))}` : ''}
-                                  {set.is_warmup ? ' · warm-up' : ''}
-                                </p>
-                              ))}
-                            </div>
-                          </div>
-                        )
-                      })}
-                    </div>
-                  </article>
-                )
-              })}
-            </div>
-          )}
-        </section>
-      </div>
+      )}
     </main>
   )
 }
