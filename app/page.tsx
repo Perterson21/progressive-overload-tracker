@@ -65,6 +65,10 @@ function estimatedOneRepMax(weight: number, reps: number) {
   return weight * (1 + reps / 30)
 }
 
+function makeTempId() {
+  return `${Date.now()}-${Math.random().toString(36).slice(2)}`
+}
+
 export default function Home() {
   const router = useRouter()
   const supabase = useMemo(() => createClient(), [])
@@ -304,7 +308,7 @@ export default function Home() {
     setDraftSets((current) => [
       ...current,
       {
-        tempId: crypto.randomUUID(),
+        tempId: makeTempId(),
         exercise_id: exerciseId,
         weight_kg: parsedWeight,
         reps: parsedReps,
