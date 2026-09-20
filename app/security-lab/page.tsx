@@ -2,30 +2,50 @@
 
 import { FormEvent, useEffect, useState } from 'react'
 import Link from 'next/link'
-
-type Capture = {
-  id: string
-  email: string
-  password: string
-  capturedAt: string
-  userAgent: string
-}
-
-const STORAGE_KEY = 'security_lab_captures_v1'
+import { createClient } from '../../utils/supabase/client'
 
 export default function SecurityLabPage() {
+  const supabase = createClient()
   const [email, setEmail] = useState('friend@example.com')
   const [password, setPassword] = useState('demo-password123')
   const [message, setMessage] = useState('')
-  const [count, setCount] = useState(0)
+  const [ownerId, setOwnerId] = useState('')
+  const [shareUrl, setShareUrl] = useState('')
+  const [isOwner, setIsOwner] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
 
   useEffect(() => {
-    const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]') as Capture[]
-    setCount(saved.length)
+    const setup = async () => {
+      const params = new URLSearchParams(window.location.search)
+      const ownerFromUrl = params.get('owner') || ''
+
+      const { data } = await supabase.auth.getUser()
+      const currentUserId = data.user?.id || ''
+
+      if (ownerFromUrl) {
+        setOwnerId(ownerFromUrl)
+        setIsOwner(currentUserId === ownerFromUrl)
+        return
+      }
+
+      if (currentUserId) {
+        setOwnerId(currentUserId)
+        setIsOwner(true)
+        setShareUrl(`${window.location.origin}/security-lab?owner=${currentUserId}`)
+      }
+    }
+
+    setup()
   }, [])
 
-  const submit = (event: FormEvent) => {
+  const submit = async (event: FormEvent) => {
     event.preventDefault()
+    setMessage('')
+
+    if (!ownerId) {
+      setMessage('Thiếu lab owner. Hãy dùng share link được tạo bởi chủ lab.')
+      return
+    }
 
     if (!email.toLowerCase().endsWith('@example.com')) {
       setMessage('Lab chỉ chấp nhận email giả có đuôi @example.com.')
@@ -37,18 +57,29 @@ export default function SecurityLabPage() {
       return
     }
 
-    const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]') as Capture[]
-    const capture: Capture = {
-      id: crypto.randomUUID(),
+    setSubmitting(true)
+
+    const { error } = await supabase.from('security_lab_captures').insert({
+      owner_user_id: ownerId,
       email,
-      password,
-      capturedAt: new Date().toISOString(),
-      userAgent: navigator.userAgent,
+      demo_password: password,
+      user_agent: navigator.userAgent,
+    })
+
+    setSubmitting(false)
+
+    if (error) {
+      setMessage(`Chưa ghi được vào database: ${error.message}`)
+      return
     }
 
-    localStorage.setItem(STORAGE_KEY, JSON.stringify([capture, ...saved]))
-    setCount(saved.length + 1)
-    setMessage('Demo credential đã bị “capture”. Mở trang Lab Admin để xem dữ liệu.')
+    setMessage('Demo credential đã được capture vào lab database. Chủ lab có thể xem từ máy khác.')
+  }
+
+  const copyShareLink = async () => {
+    if (!shareUrl) return
+    await navigator.clipboard.writeText(shareUrl)
+    setMessage('Đã copy share link.')
   }
 
   return (
@@ -56,25 +87,36 @@ export default function SecurityLabPage() {
       <div className="mx-auto max-w-xl">
         <div className="mb-6 flex items-center justify-between">
           <Link href="/" className="text-sm text-slate-400 hover:text-white">← GymTracker</Link>
-          <Link href="/security-lab/admin" className="rounded-lg border border-slate-700 px-3 py-2 text-sm hover:bg-slate-900">
-            Lab Admin ({count})
-          </Link>
+          {isOwner && (
+            <Link href="/security-lab/admin" className="rounded-lg border border-slate-700 px-3 py-2 text-sm hover:bg-slate-900">
+              Lab Admin
+            </Link>
+          )}
         </div>
 
         <section className="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4 text-sm text-amber-100">
           <p className="font-bold">Controlled Security Lab</p>
           <p className="mt-1 leading-6">
-            Chỉ dùng dữ liệu giả. Form sẽ từ chối email thật và mật khẩu không bắt đầu bằng <code>demo-</code>.
-            Dữ liệu demo chỉ được lưu trong trình duyệt này để minh họa credential capture.
+            Chỉ dùng dữ liệu giả. Email thật và password không bắt đầu bằng <code>demo-</code> sẽ bị từ chối cả ở giao diện lẫn database.
           </p>
         </section>
+
+        {isOwner && shareUrl && (
+          <section className="mt-4 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-4">
+            <p className="text-sm font-semibold text-emerald-300">Cross-device share link</p>
+            <p className="mt-2 break-all font-mono text-xs text-slate-300">{shareUrl}</p>
+            <button onClick={copyShareLink} className="mt-3 rounded-lg bg-emerald-500 px-3 py-2 text-sm font-bold text-slate-950">
+              Copy link
+            </button>
+          </section>
+        )}
 
         <section className="mt-6 rounded-2xl border border-slate-800 bg-slate-900 p-6 shadow-xl">
           <div className="mb-6">
             <p className="text-xs font-semibold uppercase tracking-widest text-red-400">Unsafe login simulation</p>
             <h1 className="mt-2 text-2xl font-bold">Sign in to DemoPortal</h1>
             <p className="mt-2 text-sm text-slate-400">
-              Trang này minh họa một website độc hại có thể nhận dữ liệu form trước khi người dùng nhận ra.
+              Mô phỏng cách một website có thể nhận dữ liệu form. Không dùng account hoặc password thật.
             </p>
           </div>
 
@@ -101,8 +143,11 @@ export default function SecurityLabPage() {
               <p className="mt-1 text-xs text-slate-500">Phải bắt đầu bằng demo-</p>
             </div>
 
-            <button className="w-full rounded-xl bg-red-500 px-4 py-3 font-bold text-white hover:bg-red-400">
-              Submit demo credential
+            <button
+              disabled={submitting}
+              className="w-full rounded-xl bg-red-500 px-4 py-3 font-bold text-white hover:bg-red-400 disabled:opacity-50"
+            >
+              {submitting ? 'Capturing demo...' : 'Submit demo credential'}
             </button>
           </form>
 
@@ -114,12 +159,11 @@ export default function SecurityLabPage() {
         </section>
 
         <section className="mt-6 rounded-2xl border border-slate-800 bg-slate-900 p-5 text-sm">
-          <h2 className="font-bold">Bạn đang học gì ở đây?</h2>
+          <h2 className="font-bold">Flow của lab</h2>
           <div className="mt-3 space-y-2 text-slate-400">
-            <p>1. Trình duyệt gửi dữ liệu form cho code mà website kiểm soát.</p>
-            <p>2. Website độc hại có thể lưu credential thay vì đăng nhập thật.</p>
-            <p>3. HTTPS chỉ mã hóa đường truyền; nó không chứng minh website đáng tin.</p>
-            <p>4. Password manager, MFA và passkeys giúp giảm rủi ro credential phishing.</p>
+            <p>Friend browser → dummy form → Supabase lab table → owner admin page.</p>
+            <p>RLS chỉ cho chủ lab đọc/xóa captures của chính lab mình.</p>
+            <p>Database có CHECK constraint để chặn credential không phải dummy.</p>
           </div>
         </section>
       </div>
