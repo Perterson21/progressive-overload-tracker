@@ -1,23 +1,92 @@
-name: Deploy to EC2
+name: CI/CD Pipeline - Build, Push and Deploy
 
 on:
   push:
-    branches: [ main ]
+    branches:
+      - main
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  AWS_REGION: ap-southeast-2
+  ECR_REPOSITORY: progressive-overload-tracker
 
 jobs:
-  deploy:
+  build-and-push:
+    name: Build & Push Docker Image
+    runs-on: ubuntu-latest
+
+    outputs:
+      registry: ${{ steps.login-ecr.outputs.registry }}
+      image: ${{ steps.build-image.outputs.image }}
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS Credentials with OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build and Push Docker Image
+        id: build-image
+        env:
+          REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          IMAGE_TAG: ${{ github.sha }}
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
+        run: |
+          docker build \
+            --build-arg NEXT_PUBLIC_SUPABASE_URL="$NEXT_PUBLIC_SUPABASE_URL" \
+            --build-arg NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY="$NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY" \
+            -t "$REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" \
+            -t "$REGISTRY/$ECR_REPOSITORY:latest" \
+            .
+
+          docker push "$REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
+          docker push "$REGISTRY/$ECR_REPOSITORY:latest"
+
+          echo "image=$REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> "$GITHUB_OUTPUT"
+
+  deploy-to-ec2:
+    name: Deploy to EC2
+    needs: build-and-push
     runs-on: ubuntu-latest
 
     steps:
-    - name: Deploy via SSH
-      uses: appleboy/ssh-action@v1.0.3
-      with:
-        host: ${{ secrets.EC2_HOST }}
-        username: ubuntu
-        key: ${{ secrets.EC2_SSH_KEY }}
-        script: |
-          aws ecr get-login-password --region ap-southeast-2 | sudo docker login --username AWS --password-stdin 277601384541.dkr.ecr.ap-southeast-2.amazonaws.com
-          sudo docker pull 277601384541.dkr.ecr.ap-southeast-2.amazonaws.com/progressive-overload-tracker:latest
-          sudo docker stop tracker-app || true
-          sudo docker rm tracker-app || true
-          sudo docker run -d --name tracker-app -p 80:3000 --restart always 277601384541.dkr.ecr.ap-southeast-2.amazonaws.com/progressive-overload-tracker:latest
+      - name: SSH and Restart Container
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ubuntu
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            set -e
+
+            aws ecr get-login-password \
+              --region ${{ env.AWS_REGION }} \
+            | sudo docker login \
+              --username AWS \
+              --password-stdin \
+              ${{ needs.build-and-push.outputs.registry }}
+
+            sudo docker pull ${{ needs.build-and-push.outputs.image }}
+
+            sudo docker stop tracker-app || true
+            sudo docker rm tracker-app || true
+
+            sudo docker run -d \
+              --name tracker-app \
+              -p 80:3000 \
+              --restart unless-stopped \
+              ${{ needs.build-and-push.outputs.image }}
+
+            sudo docker image prune -f
