@@ -23,7 +23,7 @@ create table if not exists public.workout_sessions (
 
 -- If an older V1 table named workout_sets already exists without session_id,
 -- preserve it by renaming it instead of dropping data.
-do $
+do $migration$
 begin
   if to_regclass('public.workout_sets') is not null
      and not exists (
@@ -39,7 +39,7 @@ begin
       raise exception 'Both workout_sets and workout_sets_legacy exist. Rename one manually before running this migration.';
     end if;
   end if;
-end $;
+end $migration$;
 
 create table if not exists public.workout_sets (
   id uuid primary key default gen_random_uuid(),
