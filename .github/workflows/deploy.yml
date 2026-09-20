@@ -71,6 +71,10 @@ jobs:
           script: |
             set -e
 
+            # EC2 has a small root disk. Free old Docker layers/cache before pulling
+            # the new image so deployment does not fail with "no space left on device".
+            sudo docker system prune -af || true
+
             aws ecr get-login-password \
               --region ${{ env.AWS_REGION }} \
             | sudo docker login \
