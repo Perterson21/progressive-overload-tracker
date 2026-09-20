@@ -60,6 +60,11 @@ function displayWeight(weight: number) {
   return weight === 0 ? 'BW' : `${weight} kg`
 }
 
+function estimatedOneRepMax(weight: number, reps: number) {
+  if (weight <= 0) return 0
+  return weight * (1 + reps / 30)
+}
+
 export default function Home() {
   const router = useRouter()
   const supabase = useMemo(() => createClient(), [])
@@ -181,6 +186,55 @@ export default function Home() {
       )
       .sort((a, b) => b.sessionDate.localeCompare(a.sessionDate))
   }, [exerciseId, sessions])
+
+  const exerciseStats = useMemo(() => {
+    if (exerciseHistory.length === 0) {
+      return {
+        bestWeight: 0,
+        bestReps: 0,
+        bestE1rm: 0,
+        chartPoints: [] as { date: string; value: number }[],
+      }
+    }
+
+    const bestWeight = Math.max(...exerciseHistory.map((set) => Number(set.weight_kg)))
+    const bestReps = Math.max(...exerciseHistory.map((set) => set.reps))
+    const bestE1rm = Math.max(
+      ...exerciseHistory.map((set) => estimatedOneRepMax(Number(set.weight_kg), set.reps)),
+    )
+
+    const byDate = new Map<string, number>()
+    for (const set of exerciseHistory) {
+      const e1rm = estimatedOneRepMax(Number(set.weight_kg), set.reps)
+      const current = byDate.get(set.sessionDate) ?? 0
+      if (e1rm > current) byDate.set(set.sessionDate, e1rm)
+    }
+
+    const chartPoints = [...byDate.entries()]
+      .map(([date, value]) => ({ date, value }))
+      .sort((a, b) => a.date.localeCompare(b.date))
+      .slice(-12)
+
+    return { bestWeight, bestReps, bestE1rm, chartPoints }
+  }, [exerciseHistory])
+
+  const chartPolyline = useMemo(() => {
+    const points = exerciseStats.chartPoints
+    if (points.length === 0) return ''
+
+    const values = points.map((point) => point.value)
+    const min = Math.min(...values)
+    const max = Math.max(...values)
+    const span = Math.max(max - min, 1)
+
+    return points
+      .map((point, index) => {
+        const x = points.length === 1 ? 50 : (index / (points.length - 1)) * 100
+        const y = 90 - ((point.value - min) / span) * 75
+        return `${x},${y}`
+      })
+      .join(' ')
+  }, [exerciseStats.chartPoints])
 
   const nextTarget = useMemo(() => {
     const last = exerciseHistory[0]
@@ -559,6 +613,73 @@ export default function Home() {
               <p className="mt-4 text-xs leading-5 text-slate-500">
                 Rule hiện tại: double progression 6–12 reps. App dùng RPE lưu trong DB và hiển thị RIR cho dễ tập.
               </p>
+            </section>
+
+            <section className="rounded-2xl border border-slate-800 bg-slate-900 p-5 md:p-6">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-widest text-emerald-400">Personal records</p>
+                  <h2 className="mt-1 font-bold">{selectedExercise?.name ?? 'Exercise'}</h2>
+                </div>
+                {exerciseStats.bestE1rm > 0 && (
+                  <span className="rounded-full border border-emerald-900 bg-emerald-950/40 px-3 py-1 text-xs text-emerald-300">
+                    e1RM {exerciseStats.bestE1rm.toFixed(1)} kg
+                  </span>
+                )}
+              </div>
+
+              <div className="mt-4 grid grid-cols-3 gap-2">
+                <div className="rounded-lg bg-slate-950/60 p-3">
+                  <p className="text-xs text-slate-500">Heaviest</p>
+                  <p className="mt-1 font-bold">{exerciseStats.bestWeight > 0 ? `${exerciseStats.bestWeight} kg` : '—'}</p>
+                </div>
+                <div className="rounded-lg bg-slate-950/60 p-3">
+                  <p className="text-xs text-slate-500">Most reps</p>
+                  <p className="mt-1 font-bold">{exerciseStats.bestReps || '—'}</p>
+                </div>
+                <div className="rounded-lg bg-slate-950/60 p-3">
+                  <p className="text-xs text-slate-500">e1RM PR</p>
+                  <p className="mt-1 font-bold">{exerciseStats.bestE1rm > 0 ? `${exerciseStats.bestE1rm.toFixed(1)}` : '—'}</p>
+                </div>
+              </div>
+
+              <div className="mt-4 rounded-xl border border-slate-800 bg-slate-950/50 p-3">
+                <div className="mb-2 flex items-center justify-between">
+                  <p className="text-sm font-medium">Strength trend</p>
+                  <p className="text-xs text-slate-500">last {exerciseStats.chartPoints.length || 0} sessions</p>
+                </div>
+
+                {exerciseStats.chartPoints.length > 0 ? (
+                  <>
+                    <svg viewBox="0 0 100 100" className="h-36 w-full" preserveAspectRatio="none" aria-label="Estimated one rep max progress chart">
+                      <line x1="0" y1="90" x2="100" y2="90" stroke="currentColor" className="text-slate-800" strokeWidth="1" />
+                      <polyline
+                        points={chartPolyline}
+                        fill="none"
+                        stroke="currentColor"
+                        className="text-emerald-400"
+                        strokeWidth="2.5"
+                        vectorEffect="non-scaling-stroke"
+                      />
+                      {exerciseStats.chartPoints.map((point, index) => {
+                        const values = exerciseStats.chartPoints.map((item) => item.value)
+                        const min = Math.min(...values)
+                        const max = Math.max(...values)
+                        const span = Math.max(max - min, 1)
+                        const x = exerciseStats.chartPoints.length === 1 ? 50 : (index / (exerciseStats.chartPoints.length - 1)) * 100
+                        const y = 90 - ((point.value - min) / span) * 75
+                        return <circle key={point.date} cx={x} cy={y} r="1.6" fill="currentColor" className="text-emerald-300" />
+                      })}
+                    </svg>
+                    <div className="mt-1 flex justify-between text-[11px] text-slate-600">
+                      <span>{formatDate(exerciseStats.chartPoints[0].date)}</span>
+                      <span>{formatDate(exerciseStats.chartPoints[exerciseStats.chartPoints.length - 1].date)}</span>
+                    </div>
+                  </>
+                ) : (
+                  <p className="py-10 text-center text-sm text-slate-500">Cần ít nhất một working set có mức tạ để vẽ progress.</p>
+                )}
+              </div>
             </section>
 
             <section className="rounded-2xl border border-slate-800 bg-slate-900 p-5 md:p-6">
